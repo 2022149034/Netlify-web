@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEDTECH INNOVATE - Healthcare Feedback Portal</title>
+
+  <script src="https://code.jquery.com/jquery-latest.min.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/busy-load/dist/app.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/busy-load/dist/app.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/gh/dinoqqq/simple-popup@master/dist/jquery.simple-popup.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/gh/dinoqqq/simple-popup@master/dist/jquery.simple-popup.min.css" rel="stylesheet" type="text/css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #f6f9fc, #e3f2fd);
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1976d2;
+      color: #fff;
+      text-align: center;
+      padding: 24px 0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    header h1 { margin: 0; font-weight: 700; }
+    header p { margin: 4px 0 0; font-weight: 400; }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px;
+      text-align: center;
+    }
+    input, textarea, button {
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      color: #333;
+      width: 80%;
+      margin-bottom: 12px;
+    }
+    button#submit {
+      background-color: #1976d2;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s ease;
+      width: 200px;
+    }
+    button#submit:hover {
+      background-color: #1565c0;
+      transform: scale(1.05);
+    }
+    iframe {
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(25, 118, 210, 0.3);
+    }
+    footer {
+      margin-top: 60px;
+      padding: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #555;
+    }
+
+    /* ===== AI Pillbox home links ===== */
+    .pillbox-home {
+      max-width: 900px;
+      margin: 32px auto 0 auto;
+      text-align: left;
+    }
+    .pillbox-home-title {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .pillbox-home-title h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.5rem;
+    }
+    .pillbox-home-title p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #555;
+    }
+    .pillbox-home-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .pillbox-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 150px;
+    }
+    .pillbox-card h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.2rem;
+    }
+    .pillbox-card p {
+      margin: 0 0 16px 0;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .pillbox-card a {
+      display: inline-block;
+      text-decoration: none;
+      background: #1976d2;
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    }
+    .pillbox-card a:hover {
+      background: #1565c0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(21, 101, 192, 0.25);
+    }
+    @media (max-width: 700px) {
+      .pillbox-home-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>MEDTECH INNOVATE</h1>
+    <p>Healthcare Innovation & Patient Feedback Hub</p>
+  </header>
+
+  <!-- keep original scripts -->
+  <script type="application/javascript">
+    var ip = "null";
+    function getIP(json) {
+      try { ip = json.ip; } catch (e) { ip = "unknown"; }
+      return;
+    }
+  </script>
+  <script type="application/javascript" src="https://jsonip.com?format=jsonp&callback=getIP"></script>
+
+  <script>
+    var mobile = 'desktop';
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      mobile = 'mobile';
+    }
+
+    var queryString = location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const utm = urlParams.get("utm");
+
+    function padValue(value) { return (value < 10) ? "0" + value : value; }
+
+    function getTimeStamp() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const seconds = date.getSeconds();
+      return `${padValue(year)}-${padValue(month)}-${padValue(day)} ${padValue(hours)}:${padValue(minutes)}:${padValue(seconds)}`;
+    }
+
+    function getCookieValue(name) {
+      const value = "; " + document.cookie;
+      const parts = value.split("; " + name + "=");
+      if (parts.length === 2) {
+        return parts.pop().split(";").shift();
+      }
+    }
+
+    function setCookieValue(name, value, days) {
+      let expires = "";
+      if (days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+      }
+      document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    }
+
+    function getUVfromCookie() {
+      const hash = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const existingHash = getCookieValue("user");
+      if (!existingHash) {
+        setCookieValue("user", hash, 180);
+        return hash;
+      } else {
+        return existingHash;
+      }
+    }
+
+    var data = JSON.stringify({
+      "id": getUVfromCookie(),
+      "landingUrl": window.location.href,
+      "ip": ip,
+      "referer": document.referrer,
+      "time_stamp": getTimeStamp(),
+      "utm": utm,
+      "device": mobile
+    });
+
+    $(document).ready(function () {
+      var addrScript = "https://script.google.com/macros/s/AKfycbxSJqux-X-qn3n9TY69YI6ZNVpYr1Zgkrd9O4Su3HZdA4hai_BeQuHUGqpwlUB4U1t5cQ/exec";
+
+      axios.get(addrScript + '?action=insert&table=visitors&data=' + encodeURIComponent(data))
+        .then(response => {
+          console.log("Visitors insert:", response.data);
+        })
+        .catch(error => {
+          console.log(error);
+        });
+
+      $("#submit").on("click", function () {
+        const email = $("#submit-email").val();
+        const advice = $("#submit-advice").val();
+
+        function validateEmail(email) {
+          var re = /^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/i;
+          return re.test(email);
+        }
+
+        if (email === '' || !validateEmail(email)) {
+          alert("Your email address looks invalid. Please check and try again.");
+          return;
+        }
+
+        var finalData = JSON.stringify({
+          "id": getUVfromCookie(),
+          "email": email,
+          "advice": advice
+        });
+
+        $.busyLoadFull("show");
+        axios.get(addrScript + '?action=insert&table=tab_final&data=' + encodeURIComponent(finalData))
+          .then(response => {
+            console.log("tab_final insert:", response.data);
+            $('#submit-email').val('');
+            $('#submit-advice').val('');
+            $.busyLoadFull("hide");
+            $.fn.simplePopup({ type: "html", htmlSelector: "#popup" });
+          })
+          .catch(err => {
+            console.log(err);
+            $.busyLoadFull("hide");
+            alert("Submission failed. Please try again.");
+          });
+      });
+    });
+  </script>
+
+  <!-- original feedback form -->
+  <div class="container">
+    <div class="form-email">
+      <h2>Join the Future of Medical Innovation</h2>
+      <p>Share your email to receive updates on our healthcare technology breakthroughs.</p>
+      <input id="submit-email" type="email" placeholder="Your email for updates" /> <br><br>
+      <p>Provide your feedback or advice to help us improve patient-centered innovation:</p>
+      <textarea id="submit-advice" name="Text1" cols="40" rows="5" placeholder="Your thoughts or suggestions"></textarea><br>
+      <button id="submit">Submit Feedback</button>
+    </div>
+  </div>
+
+  <!-- original video -->
+  <div class="container mt-12">
+    <iframe width="600" height="480"
+            src="https://www.youtube.com/embed/VDYZKEgKTeE?start=108"
+            title="Healthcare Technology Showcase"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen></iframe>
+  </div>
+
+  <!-- NEW: AI Pillbox portal links -->
+  <div class="container">
+    <div class="pillbox-home">
+      <div class="pillbox-home-title">
+        <h2>AI Pillbox Portal</h2>
+        <p>Access the patient and doctor interfaces for the AI Pillbox prototype.</p>
+      </div>
+
+      <div class="pillbox-home-grid">
+        <div class="pillbox-card">
+          <div>
+            <h3>Patient Portal</h3>
+            <p>Record medication name, suggested intake time, and keep a simple log of your medication.</p>
+          </div>
+          <a href="patient.html">Go to Patient Portal</a>
+        </div>
+
+        <div class="pillbox-card">
+          <div>
+            <h3>Doctor Portal</h3>
+            <p>View medication records of different patients and see real-time suggestions based on their latest schedules.</p>
+          </div>
+          <a href="doctor.html">Go to Doctor Portal</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="popup" style="display:none;">
+    <h1>Thank you!</h1>
+    <p>Your feedback helps us shape a healthier tomorrow.</p>
+  </div>
+
+  <footer>
+    <p>© 2025 MEDTECH INNOVATE. Advancing Healthcare Together.</p>
+  </footer>
+</body>
+</html>
