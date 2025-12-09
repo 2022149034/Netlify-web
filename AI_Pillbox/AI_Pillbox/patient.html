@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Pillbox - Patient Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Axios for sending data to Google Apps Script -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #1976d2;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+    }
+    header a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    main {
+      max-width: 800px;
+      width: 100%;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem 1.5rem;
+      box-sizing: border-box;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0.75rem;
+    }
+    label {
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+    }
+    input, select {
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 0.95rem;
+    }
+    button {
+      margin-top: 0.75rem;
+      padding: 0.6rem 1rem;
+      border-radius: 999px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: #1976d2;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    button:hover {
+      background: #1565c0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(21, 101, 192, 0.25);
+    }
+    .note {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 0.75rem;
+    }
+    .table-wrapper {
+      margin-top: 1.25rem;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      padding: 1rem;
+      display: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    th {
+      background: #f5f7fa;
+      font-weight: 600;
+    }
+    footer {
+      margin-top: auto;
+      text-align: center;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Pillbox · Patient Portal</h1>
+    <a href="index.html">Back to Home</a>
+  </header>
+
+  <main>
+    <h2>Record your medication</h2>
+    <p class="note">
+      Records are stored in this browser (localStorage) and also sent to Google Sheet via Apps Script.<br>
+      The doctor portal on the same device can read the local records.
+    </p>
+
+    <div class="field-group">
+      <label for="patient-name">Patient name</label>
+      <input id="patient-name" type="text" placeholder="e.g., John Smith" />
+    </div>
+
+    <div class="field-group">
+      <label for="medication-name">Medication name</label>
+      <input id="medication-name" type="text" placeholder="e.g., Aspirin 100mg" />
+    </div>
+
+    <div class="field-group">
+      <label for="suggested-time">Suggested medication time (every day)</label>
+      <input id="suggested-time" type="time" />
+    </div>
+
+    <div class="field-group">
+      <label for="study-group">Study group (X / Y / Z)</label>
+      <select id="study-group">
+        <option value="">Please select a group</option>
+        <option value="X">X – AI Pillbox with intelligent recommendations</option>
+        <option value="Y">Y – Basic reminder only</option>
+        <option value="Z">Z – Usual care / control</option>
+      </select>
+    </div>
+
+    <button id="save-record">Save medication record</button>
+
+    <div class="table-wrapper" id="records-wrapper">
+      <h3>Medication records for this patient</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Record time</th>
+            <th>Medication</th>
+            <th>Suggested time</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    AI Pillbox · Patient side demo
+  </footer>
+
+  <script>
+    const STORAGE_KEY = 'pillbox_records_v1';
+
+    // ⚠️ Replace this with your real Apps Script Web App URL (ending with /exec)
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlMPEi5H1j40POEL_jnT7h9jJqPF7Z8NHiZIZXlBlFvDrpwgr4OB_s0XgxyuNrMN2kCQ/exec';
+
+    function loadRecords() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveRecords(records) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+
+    function formatDateTime(dt) {
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const mm = String(dt.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${d} ${hh}:${mm}`;
+    }
+
+    const inputName  = document.getElementById('patient-name');
+    const inputMed   = document.getElementById('medication-name');
+    const inputTime  = document.getElementById('suggested-time');
+    const inputGroup = document.getElementById('study-group');
+    const btnSave    = document.getElementById('save-record');
+    const wrapper    = document.getElementById('records-wrapper');
+    const tbody      = document.getElementById('records-tbody');
+
+    function renderRecordsForName(name) {
+      const all = loadRecords();
+      const filtered = all.filter(r => r.patientName === name);
+      if (filtered.length === 0) {
+        wrapper.style.display = 'none';
+        tbody.innerHTML = '';
+        return;
+      }
+      wrapper.style.display = 'block';
+      tbody.innerHTML = '';
+      filtered
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .forEach(r => {
+          const tr = document.createElement('tr');
+          const dt = new Date(r.createdAt);
+          tr.innerHTML = `
+            <td>${formatDateTime(dt)}</td>
+            <td>${r.medication}</td>
+            <td>${r.suggestedTime || '-'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+    }
+
+    function sendRecordToSheet(record) {
+      const params = new URLSearchParams({
+        action: 'insert_pillbox',
+        data: JSON.stringify(record)
+      });
+
+      return axios
+        .get(`${SCRIPT_URL}?${params.toString()}`)
+        .then(res => {
+          console.log('Pillbox record saved to sheet:', res.data);
+        })
+        .catch(err => {
+          console.error('Error saving to sheet:', err);
+          // Do not block local logic.
+        });
+    }
+
+    btnSave.addEventListener('click', () => {
+      const name  = (inputName.value || '').trim();
+      const med   = (inputMed.value || '').trim();
+      const time  = inputTime.value;
+      const group = inputGroup.value;
+
+      if (!name) {
+        alert('Please enter patient name.');
+        return;
+      }
+      if (!med) {
+        alert('Please enter medication name.');
+        return;
+      }
+      if (!time) {
+        alert('Please enter suggested medication time.');
+        return;
+      }
+      if (!group) {
+        alert('Please select a study group (X, Y or Z).');
+        return;
+      }
+
+      const record = {
+        patientName: name,
+        medication: med,
+        suggestedTime: time,
+        group: group,
+        createdAt: new Date().toISOString()
+      };
+
+      // 1) Save locally
+      const all = loadRecords();
+      all.push(record);
+      saveRecords(all);
+      renderRecordsForName(name);
+
+      // 2) Send to Google Sheet (non-blocking)
+      sendRecordToSheet(record);
+
+      inputMed.value = '';
+      inputTime.value = '';
+      alert('Medication record saved (locally and sent to Google Sheet).');
+    });
+
+    inputName.addEventListener('blur', () => {
+      const name = (inputName.value || '').trim();
+      if (name) renderRecordsForName(name);
+    });
+  </script>
+</body>
+</html>

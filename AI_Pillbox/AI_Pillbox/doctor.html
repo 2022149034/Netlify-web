@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Pillbox - Doctor Portal (from Google Sheet)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Axios for HTTP requests to Apps Script -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #1976d2;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+    }
+    header a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    main {
+      max-width: 960px;
+      width: 100%;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem 1.5rem;
+      box-sizing: border-box;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .note {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 0.75rem;
+    }
+    .status-bar {
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      background: #e3f2fd;
+      color: #0d47a1;
+      display: none;
+    }
+    .status-bar.error {
+      background: #ffebee;
+      color: #b71c1c;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin: 1rem 0 1.25rem;
+    }
+    .summary-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 0.75rem 0.9rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .summary-card span.label {
+      color: #666;
+      font-size: 0.8rem;
+    }
+    .summary-card span.value {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .summary-card span.sub {
+      font-size: 0.8rem;
+      color: #777;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 200px;
+    }
+    label {
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+    }
+    select {
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    .suggestion-box {
+      margin-top: 0.5rem;
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      background: #f0f4ff;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .suggestion-box strong {
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .table-wrapper {
+      margin-top: 1.25rem;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      padding: 1rem;
+      display: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    th {
+      background: #f5f7fa;
+      font-weight: 600;
+    }
+
+    footer {
+      margin-top: auto;
+      text-align: center;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+      color: #777;
+    }
+
+    @media (max-width: 800px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 520px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Pillbox · Doctor Portal</h1>
+    <a href="index.html">Back to Home</a>
+  </header>
+
+  <main>
+    <h2>View patient medication records (from Google Sheet)</h2>
+    <p class="note">
+      This page loads data directly from the Google Sheet <code>pillbox</code> via Apps Script.<br>
+      Each record is created in the Patient Portal and stored with a study group label (X / Y / Z).
+    </p>
+
+    <div id="status-bar" class="status-bar"></div>
+
+    <!-- Summary statistics -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span class="label">Total records</span>
+        <span class="value" id="summary-total-records">-</span>
+        <span class="sub">All rows in <code>pillbox</code></span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Patients</span>
+        <span class="value" id="summary-total-patients">-</span>
+        <span class="sub">Unique patient names</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Group X records</span>
+        <span class="value" id="summary-group-x">-</span>
+        <span class="sub">AI Pillbox with intelligent recommendations</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Group Y / Z records</span>
+        <span class="value" id="summary-group-yz">-</span>
+        <span class="sub">Basic reminder / control</span>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-row">
+      <div class="field-group">
+        <label for="patient-select">Select patient</label>
+        <select id="patient-select">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+
+      <div class="field-group" style="min-width: 160px;">
+        <label>Patient group</label>
+        <div id="patient-group-label" style="font-size:0.9rem;color:#444;">-</div>
+      </div>
+    </div>
+
+    <div class="suggestion-box" id="suggestion-box">
+      <strong>Real-time suggestion</strong>
+      <span id="suggestion-text"></span>
+    </div>
+
+    <div class="table-wrapper" id="records-wrapper">
+      <h3>Medication records of this patient</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Record time</th>
+            <th>Medication</th>
+            <th>Suggested time</th>
+            <th>Group</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    AI Pillbox · Doctor side demo · Data source: Google Sheet <code>pillbox</code>
+  </footer>
+
+  <script>
+    // ⚠️ Replace with your Apps Script Web App URL (ending in /exec) if你以后换部署
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlMPEi5H1j40POEL_jnT7h9jJqPF7Z8NHiZIZXlBlFvDrpwgr4OB_s0XgxyuNrMN2kCQ/exec';
+
+    let allRecords = []; // all rows from Sheet
+
+    const statusBar       = document.getElementById('status-bar');
+    const selectPatient   = document.getElementById('patient-select');
+    const recordsWrapper  = document.getElementById('records-wrapper');
+    const tbody           = document.getElementById('records-tbody');
+    const suggestionBox   = document.getElementById('suggestion-box');
+    const suggestionText  = document.getElementById('suggestion-text');
+    const patientGroupLbl = document.getElementById('patient-group-label');
+
+    const summaryTotalRecords = document.getElementById('summary-total-records');
+    const summaryTotalPatients = document.getElementById('summary-total-patients');
+    const summaryGroupX = document.getElementById('summary-group-x');
+    const summaryGroupYZ = document.getElementById('summary-group-yz');
+
+    function showStatus(message, isError = false) {
+      statusBar.textContent = message;
+      statusBar.classList.toggle('error', isError);
+      statusBar.style.display = 'block';
+    }
+
+    function hideStatus() {
+      statusBar.style.display = 'none';
+    }
+
+    function formatDateTimeFromSheet(value) {
+      // value may be a string (ISO) or something else
+      const dt = new Date(value);
+      if (isNaN(dt.getTime())) {
+        return String(value || '');
+      }
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const mm = String(dt.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${d} ${hh}:${mm}`;
+    }
+
+    async function fetchRecordsFromSheet() {
+      try {
+        showStatus('Loading data from Google Sheet...');
+        const params = new URLSearchParams({
+          action: 'read',
+          table: 'pillbox'
+        });
+
+        const res = await axios.get(`${SCRIPT_URL}?${params.toString()}`);
+        const payload = res.data;
+
+        if (!payload || !payload.success) {
+          throw new Error('API returned an error: ' + JSON.stringify(payload));
+        }
+
+        const rows = payload.data || [];
+        // Normalize
+        allRecords = rows
+          .map(r => ({
+            patientName: r.patientName || '',
+            group: (r.group || '').toString().trim(),
+            medication: r.medication || '',
+            suggestedTime: r.suggestedTime, // 保留原始值，后面统一解析
+            timestamp: r.timestamp,         // write time
+            recordDateTime: r.recordDateTime || r.timestamp // may be same
+          }))
+          .filter(r => r.patientName); // only keep rows with a patient name
+
+        if (allRecords.length === 0) {
+          showStatus('No records found in sheet "pillbox".', false);
+        } else {
+          hideStatus();
+        }
+
+        populateSummary();
+        populatePatientSelect();
+      } catch (err) {
+        console.error(err);
+        showStatus('Failed to load data from Google Sheet. Please check Apps Script / CORS / Sheet name.', true);
+      }
+    }
+
+    function populateSummary() {
+      const total = allRecords.length;
+      const patientSet = new Set(allRecords.map(r => r.patientName));
+      const groupX = allRecords.filter(r => r.group === 'X').length;
+      const groupY = allRecords.filter(r => r.group === 'Y').length;
+      const groupZ = allRecords.filter(r => r.group === 'Z').length;
+
+      summaryTotalRecords.textContent = total;
+      summaryTotalPatients.textContent = patientSet.size;
+      summaryGroupX.textContent = groupX;
+      summaryGroupYZ.textContent = groupY + groupZ;
+    }
+
+    function populatePatientSelect() {
+      const names = Array.from(new Set(allRecords.map(r => r.patientName))).sort();
+      selectPatient.innerHTML = '';
+
+      if (names.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '(No data yet)';
+        selectPatient.appendChild(opt);
+        patientGroupLbl.textContent = '-';
+        recordsWrapper.style.display = 'none';
+        suggestionBox.style.display = 'none';
+        return;
+      }
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Please select a patient';
+      selectPatient.appendChild(placeholder);
+
+      names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        selectPatient.appendChild(opt);
+      });
+    }
+
+    function updateViewForPatient(name) {
+      const filtered = allRecords
+        .filter(r => r.patientName === name)
+        .sort((a, b) => new Date(a.recordDateTime || a.timestamp) - new Date(b.recordDateTime || b.timestamp));
+
+      if (!name || filtered.length === 0) {
+        recordsWrapper.style.display = 'none';
+        suggestionBox.style.display = 'none';
+        patientGroupLbl.textContent = '-';
+        tbody.innerHTML = '';
+        return;
+      }
+
+      // Determine patient's main group = last record's group (or majority, but simple here)
+      const last = filtered[filtered.length - 1];
+      const group = last.group || '-';
+      let groupDesc = '-';
+      if (group === 'X') groupDesc = 'X – AI Pillbox with intelligent recommendations';
+      else if (group === 'Y') groupDesc = 'Y – Basic reminder only';
+      else if (group === 'Z') groupDesc = 'Z – Usual care / control';
+
+      patientGroupLbl.textContent = groupDesc;
+
+      // Fill table
+      recordsWrapper.style.display = 'block';
+      tbody.innerHTML = '';
+      filtered.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${formatDateTimeFromSheet(r.recordDateTime || r.timestamp)}</td>
+          <td>${r.medication}</td>
+          <td>${formatSuggestedTime(r.suggestedTime)}</td>
+          <td>${r.group || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Real-time suggestion based on latest record
+      updateSuggestion(last);
+    }
+
+    // 把各种格式的 suggestedTime 统一解析成 { label, h, m }
+    function normalizeSuggestedTime(raw) {
+      if (!raw) return null;
+
+      // 如果已经是 Date 对象（表格读出来经常是 Date）
+      if (raw instanceof Date) {
+        return {
+          label: `${String(raw.getHours()).padStart(2, '0')}:${String(raw.getMinutes()).padStart(2, '0')}`,
+          h: raw.getHours(),
+          m: raw.getMinutes()
+        };
+      }
+
+      const str = String(raw).trim();
+
+      // 情况 1：ISO 或 Google Sheets 的日期时间字符串
+      // 例如 "1899-12-30T01:42:08.000Z" / "2025-12-09T09:30:00.000Z"
+      const isoCandidate = new Date(str);
+      if (!isNaN(isoCandidate.getTime())) {
+        return {
+          label: `${String(isoCandidate.getHours()).padStart(2, '0')}:${String(isoCandidate.getMinutes()).padStart(2, '0')}`,
+          h: isoCandidate.getHours(),
+          m: isoCandidate.getMinutes()
+        };
+      }
+
+      // 情况 2：纯 "HH:MM" 字符串
+      const parts = str.split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m)) {
+          return {
+            label: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+            h,
+            m
+          };
+        }
+      }
+
+      return null;
+    }
+
+    // 用于表格展示：只要 HH:MM / 或者原始字符串 / '-'
+    function formatSuggestedTime(raw) {
+      const n = normalizeSuggestedTime(raw);
+      if (!n) {
+        return raw ? String(raw) : '-';
+      }
+      return n.label;
+    }
+
+    // ✅ 新版 Real-time suggestion
+    function updateSuggestion(latest) {
+      const now = new Date();
+      const normalized = normalizeSuggestedTime(latest.suggestedTime);
+
+      let text = '';
+
+      if (!normalized) {
+        text = 'The latest record has no valid suggested time. Please confirm the schedule with the patient.';
+      } else {
+        const suggestMinutes = normalized.h * 60 + normalized.m;
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const labelTime = normalized.label;  // e.g. "01:42"
+        const diff = suggestMinutes - nowMinutes;
+
+        if (diff > 0) {
+          // 还没到服药时间
+          const h = Math.floor(diff / 60);
+          const m = diff % 60;
+          text =
+            `The suggested intake time ${labelTime} is in about ` +
+            (h > 0 ? `${h} hour(s) ` : '') +
+            `${m} minute(s). Please remind the patient to take ${latest.medication} on time.`;
+        } else if (diff >= -60) {
+          // 在建议时间前后 60 分钟内
+          text =
+            `It is around or shortly after the suggested time ${labelTime}. ` +
+            `Please check whether the patient has already taken ${latest.medication}.`;
+        } else {
+          // 已经过去很久
+          text =
+            `The suggested intake time ${labelTime} has passed for quite a while. ` +
+            `If the patient still has not taken ${latest.medication}, you may consider follow-up or adjusting the regimen.`;
+        }
+      }
+
+      suggestionText.textContent = text;
+      suggestionBox.style.display = 'block';
+    }
+
+    selectPatient.addEventListener('change', () => {
+      updateViewForPatient(selectPatient.value);
+    });
+
+    // Init on load
+    fetchRecordsFromSheet();
+  </script>
+</body>
+</html>
