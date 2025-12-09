@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Pillbox – Doctor Portal</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont;background:#eef1f6;margin:0;}
+.header{padding:40px 24px 20px;font-size:32px;font-weight:700;}
+.container{max-width:700px;margin:auto;padding:20px;}
+.card{background:rgba(255,255,255,0.75);backdrop-filter:blur(18px);border-radius:26px;
+      padding:24px;margin-bottom:30px;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+textarea{width:100%;padding:16px;border-radius:16px;border:none;background:#f3f4f8;font-size:16px;}
+button{width:100%;padding:16px;background:#34c759;color:white;font-size:18px;border:none;border-radius:14px;}
+.guidance-box{background:#f0fff4;padding:16px 20px;border-radius:16px;border-left:4px solid #34c759;margin-top:14px;}
+</style></head>
+<body>
+<div class="header">🩺 Doctor Portal</div>
+<div class="container">
+<div class="card">
+<h2>Generate Medical Guidance</h2>
+<textarea id="doctor_input" placeholder="Example: Weekly plan for a hypertension patient."></textarea>
+<button onclick="askAI()">Generate Advice</button>
+<div id="output" class="guidance-box"></div>
+</div></div>
+<script>
+const API_URL="https://2df4a3a29977.ngrok-free.app/data";
+async function askAI(){
+ let q=document.getElementById("doctor_input").value;
+ let fd=new FormData(); fd.append("data", q);
+ let res=await fetch(API_URL,{method:"POST",body:fd});
+ let json=await res.json();
+ document.getElementById("output").innerText=json.answer;
+}
+</script>
+</body></html>
