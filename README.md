@@ -1,6 +1,5 @@
-﻿# Netlify-web
+﻿# AI Pillbox 🧪💊
 
-# AI Pillbox 🧪💊
 
 A lightweight **web-based medication management prototype** with separate **Patient** and **Doctor** portals, backed by **Google Sheets + Apps Script**.  
 The project is also designed as an **X / Y / Z experiment platform** to study how different digital interventions affect **medication adherence**.
@@ -107,3 +106,4 @@ Example folder structure for the front-end:
 ├─ patient.html      # Patient Portal (records + send to Sheet)
 ├─ doctor.html       # Doctor Portal (read from Sheet, show stats)
 └─ README.md         # This file
+
